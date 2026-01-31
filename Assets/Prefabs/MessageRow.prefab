@@ -81,8 +81,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   messageText: {fileID: 4772982671014337411}
   bubbleBackground: {fileID: 4867669600628964538}
-  leftAvatar: {fileID: 0}
-  rightAvatar: {fileID: 0}
+  leftAvatarImage: {fileID: 283822572056861429}
+  rightAvatarImage: {fileID: 8583340382196201951}
   layoutGroup: {fileID: 4637880641864007660}
   selfBubbleColor: {r: 0.6, g: 1, b: 0.6, a: 1}
   otherBubbleColor: {r: 1, g: 1, b: 1, a: 1}
@@ -208,7 +208,7 @@ MonoBehaviour:
   m_MinHeight: -1
   m_PreferredWidth: -1
   m_PreferredHeight: -1
-  m_FlexibleWidth: -1
+  m_FlexibleWidth: 0
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
 --- !u!1 &6088422772341010620
@@ -353,7 +353,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u4F60\u597D"
+  m_text: "\u54C8\u4ECA\u665A\u7535\u8BDD\u5361\u7ED3\u5A5A\u767B\u8BB0\u5361\u548C\u80AF\u5FB7\u57FA"
   m_enableAdvanceTextProcess: 0
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: b92640f24a7130c4690e6ea7274d2c3f, type: 2}

@@ -85,6 +85,13 @@ public class DialogInfo : MonoBehaviour
 
             if (isOptions)
             {
+                // 如果不是第一条消息（即之前已经有过对话），在显示选项前额外等待1秒
+                // 避免选项直接“蹦”出来，给玩家一点反应时间
+                if (!isFirstMessage)
+                {
+                    yield return new WaitForSeconds(1.0f);
+                }
+
                 // 选项出现意味着第一条消息阶段已过（或者是选项开局）
                 isFirstMessage = false;
 
