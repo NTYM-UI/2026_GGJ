@@ -12,7 +12,7 @@ namespace Core.EventSystem
         {
             // 订阅事件 (Subscribe)
             EventManager.Instance.Subscribe(GameEvents.ON_GAME_START, HandleGameStart);
-            EventManager.Instance.Subscribe(GameEvents.ON_OBJECT_GRABBED, HandleObjectGrabbed);
+            EventManager.Instance.Subscribe(GameEvents.ON_GAME_OVER, HandleObjectGrabbed);
         }
 
         void OnDisable()
@@ -21,7 +21,7 @@ namespace Core.EventSystem
             if (EventManager.HasInstance)
             {
                 EventManager.Instance.Unsubscribe(GameEvents.ON_GAME_START, HandleGameStart);
-                EventManager.Instance.Unsubscribe(GameEvents.ON_OBJECT_GRABBED, HandleObjectGrabbed);
+                EventManager.Instance.Unsubscribe(GameEvents.ON_GAME_OVER, HandleObjectGrabbed);
             }
         }
 
@@ -45,7 +45,7 @@ namespace Core.EventSystem
         {
             // 触发事件 (TriggerEvent) - 带参数
             string grabbedObjectName = "Ancient Sword";
-            EventManager.Instance.TriggerEvent(GameEvents.ON_OBJECT_GRABBED, grabbedObjectName);
+            EventManager.Instance.TriggerEvent(GameEvents.ON_GAME_OVER, grabbedObjectName);
         }
 
         // 事件处理函数

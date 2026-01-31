@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: DCkesXv4V32DlNBr1l2LvyxsNK/pbztlF0NVIhryAtNGxsaW56iAXYo=
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - chatBubblePrefab: {instanceID: 0}
+  - contentContainer: {instanceID: 0}
+  - scrollRect: {instanceID: 0}
+  - optionButtonPrefab: {fileID: 7367272746500099486, guid: 60d30fbe6e76c464a80028b743903e7a, type: 3}
+  - optionsContainer: {instanceID: 0}
+  - contactListContainer: {instanceID: 0}
+  - contactItemPrefab: {fileID: 4076462283917140724, guid: 9cbf829fbe2573c40806602ae67e39d3, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

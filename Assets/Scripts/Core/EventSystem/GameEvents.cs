@@ -17,5 +17,11 @@ namespace Core.EventSystem
         // UI 相关
         public const string ON_UI_OPEN = "OnUIOpen";
         public const string ON_UI_CLOSE = "OnUIClose";
+
+        // 对话系统相关
+        public const string DIALOG_START = "DialogStart";
+        public const string DIALOG_END = "DialogEnd";
+        public const string ON_DIALOG = "OnDialog"; // 对话进行中（如下一句）
+        public const string DIALOG_TYPE_SOUND = "DialogTypeSound"; // 打字音效
     }
 }
