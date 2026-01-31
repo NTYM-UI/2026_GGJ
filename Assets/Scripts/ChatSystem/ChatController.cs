@@ -36,6 +36,16 @@ namespace ChatSystem
         [Tooltip("选项按钮的父容器 (Panel)")]
         private Transform optionsContainer;
 
+        [Header("Mask Images (面具图片配置)")]
+        [SerializeField] private List<MaskDefinition> maskDefinitions = new List<MaskDefinition>();
+
+        [System.Serializable]
+        public struct MaskDefinition
+        {
+            public string key;   // 关键词 (如 "快乐", "Happy")
+            public Sprite sprite; // 对应的面具图片
+        }
+
         [Header("Contact List System (联系人列表)")]
         
         [SerializeField]
@@ -345,8 +355,11 @@ namespace ChatSystem
                     
                     if (btnScript != null)
                     {
+                        // 查找对应的面具图片
+                        Sprite maskSprite = GetMaskSprite(optionText, index);
+
                         // 绑定点击事件
-                        btnScript.Setup(optionText, () => OnOptionSelected(optionText, index));
+                        btnScript.Setup(optionText, maskSprite, () => OnOptionSelected(optionText, index));
                     }
                 }
                 
@@ -366,6 +379,40 @@ namespace ChatSystem
                 }
                 PlayNotificationSound();
             }
+        }
+
+        /// <summary>
+        /// 根据选项文本查找对应的面具图片
+        /// 优先匹配 Key，如果未匹配且 Index 有效，尝试按顺序获取（仅当配置项 Key 为空时）
+        /// </summary>
+        private Sprite GetMaskSprite(string text, int index)
+        {
+            if (maskDefinitions == null || maskDefinitions.Count == 0) return null;
+
+            // 1. 优先尝试 Key 匹配
+            if (!string.IsNullOrEmpty(text))
+            {
+                foreach (var def in maskDefinitions)
+                {
+                    if (!string.IsNullOrEmpty(def.key) && text.Contains(def.key))
+                    {
+                        return def.sprite;
+                    }
+                }
+            }
+
+            // 2. 如果没有匹配到 Key，且 Index 在范围内，检查是否可以直接使用
+            if (index >= 0 && index < maskDefinitions.Count)
+            {
+                var def = maskDefinitions[index];
+                // 如果该位置的配置没有 Key，则认为是按顺序默认使用的
+                if (string.IsNullOrEmpty(def.key))
+                {
+                    return def.sprite;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
