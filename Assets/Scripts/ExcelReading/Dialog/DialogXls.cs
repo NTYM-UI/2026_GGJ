@@ -75,6 +75,9 @@ namespace XlsWork.Dialogs
                     item.totalTime = tTime;
                 }
 
+                // O列：后果弹窗内容 (第15列)
+                item.consequence = sheet.Cells[row, 15].Text;
+
                 // 存入字典（支持同 ID 多条数据）
                 if (!dialogDict.ContainsKey(item.id))
                 {

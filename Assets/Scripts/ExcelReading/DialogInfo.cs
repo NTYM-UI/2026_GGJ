@@ -22,6 +22,7 @@ public class DialogItem
     public string optionDesc; // 选项描述（K列，显示在按钮上但不上屏）
     public int costTime;     // 消耗时间（M列，秒）
     public float totalTime;  // 总时间（N列，秒，通常只在第一行配置）
+    public string consequence; // 后果弹窗内容（O列）
 }
 
 public class DialogInfo : MonoBehaviour
@@ -105,10 +106,69 @@ public class DialogInfo : MonoBehaviour
         bool isFirstMessage = true; // 标记是否为第一条消息
         ChatSystem.ContactData activeContact = null; // 记录当前对话的活跃联系人
 
+        // 在开始对话前，尝试检测是否需要插入分割线（如果该联系人已有历史消息）
+        if (currentDialogId > 0 && dialogDict.ContainsKey(currentDialogId) && chatController != null)
+        {
+            var firstItems = dialogDict[currentDialogId];
+            if (firstItems != null && firstItems.Count > 0)
+            {
+                // 尝试获取第一句话的发送者
+                string charName = firstItems[0].character;
+                if (!string.IsNullOrEmpty(charName))
+                {
+                    var contact = chatController.GetContactByName(charName);
+                    // 如果联系人存在且已经有聊天记录
+                    if (contact != null && contact.messageHistory.Count > 0)
+                    {
+                        // 检查最后一条是否已经是分割线（避免重复）
+                        var lastMsg = contact.messageHistory[contact.messageHistory.Count - 1];
+                        if (lastMsg.type != ChatSystem.MessageType.Separator)
+                        {
+                            chatController.AddSeparator(contact);
+                        }
+                    }
+                    // 顺便预设 activeContact
+                    activeContact = contact;
+                }
+            }
+        }
+
         while (currentDialogId > 0 && dialogDict.ContainsKey(currentDialogId))
         {
+            // 检查是否达到安全节点 (ID >= 12001)
+            // 只要触发过一次 >= 12001，就认为进入安全阶段
+            // 移到循环开头，确保如果是 12001 且是 END 也能正确触发胜利
+            if (currentDialogId >= 12001)
+            {
+                if (Core.TimeSystem.GameCountdownTimer.Instance != null && !Core.TimeSystem.GameCountdownTimer.Instance.isSafePhase)
+                {
+                    Core.TimeSystem.GameCountdownTimer.Instance.isSafePhase = true;
+                    Debug.Log($"[DialogInfo] Reached checkpoint {currentDialogId}, Safe Phase enabled.");
+                    
+                    // 只要读到12001且此时没失败，就直接判定胜利触发
+                    Debug.Log("[DialogInfo] Reached 12001 (Safe Phase). Triggering GAME_WIN immediately.");
+                    EventManager.Instance.TriggerEvent(GameEvents.GAME_WIN, null);
+                }
+            }
+
             List<DialogItem> items = dialogDict[currentDialogId];
             if (items == null || items.Count == 0) break;
+
+            // 检查后果弹窗 (O列)
+            string consequenceMsg = null;
+            foreach (var it in items)
+            {
+                if (!string.IsNullOrEmpty(it.consequence))
+                {
+                    consequenceMsg = it.consequence;
+                    break;
+                }
+            }
+            if (!string.IsNullOrEmpty(consequenceMsg))
+            {
+                Debug.Log($"[DialogInfo] Triggering Consequence: {consequenceMsg}");
+                EventManager.Instance.TriggerEvent(GameEvents.SHOW_CONSEQUENCE, consequenceMsg);
+            }
 
             // 检查是否是选项（多个条目或者 Flag 为 &）
             bool isOptions = items.Count > 1 || items[0].flag == "&";
@@ -306,17 +366,6 @@ public class DialogInfo : MonoBehaviour
 
                 // 跳转到下一句
                 currentDialogId = current.jumpId;
-                
-                // 检查是否达到安全节点 (ID >= 12001)
-                // 只要触发过一次 >= 12001，就认为进入安全阶段
-                if (currentDialogId >= 12001)
-                {
-                    if (Core.TimeSystem.GameCountdownTimer.Instance != null && !Core.TimeSystem.GameCountdownTimer.Instance.isSafePhase)
-                    {
-                        Core.TimeSystem.GameCountdownTimer.Instance.isSafePhase = true;
-                        Debug.Log($"[DialogInfo] Reached checkpoint {currentDialogId}, Safe Phase enabled.");
-                    }
-                }
             }
         }
         

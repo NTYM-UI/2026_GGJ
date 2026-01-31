@@ -424,6 +424,24 @@ namespace ChatSystem
         }
 
         /// <summary>
+        /// 添加分割线
+        /// </summary>
+        public void AddSeparator(ContactData targetContact)
+        {
+            if (targetContact == null) return;
+            
+            ChatMessage msg = new ChatMessage("", false); // 内容为空，类型为 Separator
+            msg.type = MessageType.Separator;
+            
+            targetContact.messageHistory.Add(msg);
+            
+            if (currentContact == targetContact)
+            {
+                CreateBubble(msg);
+            }
+        }
+
+        /// <summary>
         /// 添加一条新消息到界面上
         /// </summary>
         public void AddMessage(string text, bool isSelf)
@@ -462,7 +480,37 @@ namespace ChatSystem
 
         private void CreateBubble(ChatMessage msg)
         {
-            if (chatBubblePrefab == null || contentContainer == null) return;
+            if (contentContainer == null) return;
+
+            // 处理分割线
+            if (msg.type == MessageType.Separator)
+            {
+                GameObject sepObj = new GameObject("Separator");
+                sepObj.transform.SetParent(contentContainer, false);
+                
+                // 布局占位，上下留白
+                LayoutElement le = sepObj.AddComponent<LayoutElement>();
+                le.minHeight = 40; 
+                le.flexibleWidth = 1;
+
+                // 画一条横线
+                GameObject line = new GameObject("Line");
+                line.transform.SetParent(sepObj.transform, false);
+                Image lineImg = line.AddComponent<Image>();
+                lineImg.color = new Color(0.8f, 0.8f, 0.8f, 0.5f); // 浅灰色半透明
+                
+                RectTransform lineRect = line.GetComponent<RectTransform>();
+                // 居中，左右各留 20% 间距
+                lineRect.anchorMin = new Vector2(0.2f, 0.5f);
+                lineRect.anchorMax = new Vector2(0.8f, 0.5f);
+                lineRect.sizeDelta = new Vector2(0, 2); // 线高 2px
+                lineRect.anchoredPosition = Vector2.zero;
+
+                StartCoroutine(ScrollToBottom());
+                return;
+            }
+
+            if (chatBubblePrefab == null) return;
 
             GameObject bubbleObj = Instantiate(chatBubblePrefab, contentContainer);
             ChatBubble bubble = bubbleObj.GetComponent<ChatBubble>();

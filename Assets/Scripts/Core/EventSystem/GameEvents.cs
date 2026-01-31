@@ -23,6 +23,7 @@ namespace Core.EventSystem
         public const string DIALOG_END = "DialogEnd";
         public const string ON_DIALOG = "OnDialog"; // 对话进行中（如下一句）
         public const string DIALOG_TYPE_SOUND = "DialogTypeSound"; // 打字音效
+        public const string SHOW_CONSEQUENCE = "ShowConsequence"; // 后果弹窗
 
         // 结算相关
         public const string GAME_WIN = "GameWin";

@@ -3,6 +3,12 @@ using UnityEngine;
 
 namespace ChatSystem
 {
+    public enum MessageType
+    {
+        Normal,
+        Separator
+    }
+
     /// <summary>
     /// 聊天消息的数据模型类。
     /// 标记为 [Serializable] 以便可以在 Unity Inspector 面板中查看（如果是列表成员）。
@@ -10,6 +16,8 @@ namespace ChatSystem
     [Serializable]
     public class ChatMessage
     {
+        public MessageType type = MessageType.Normal;
+
         /// <summary>
         /// 发送者名称
         /// </summary>

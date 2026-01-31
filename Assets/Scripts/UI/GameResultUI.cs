@@ -34,8 +34,19 @@ namespace UI
             if (winPanel != null)
             {
                 winPanel.SetActive(true);
+                // 1秒后自动隐藏
+                StartCoroutine(HideWinPanelAfterDelay(1.0f));
             }
             // 可以在这里添加停止游戏逻辑，例如 Time.timeScale = 0;
+        }
+
+        private System.Collections.IEnumerator HideWinPanelAfterDelay(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (winPanel != null)
+            {
+                winPanel.SetActive(false);
+            }
         }
 
         private void OnGameFail(object data)

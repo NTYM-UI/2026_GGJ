@@ -79,10 +79,19 @@ namespace Core.TimeSystem
             if (!isRunning) return;
             
             currentTime -= amount;
-            if (currentTime < 0) currentTime = 0;
             
-            Debug.Log($"[GameCountdownTimer] Reduced {amount}s, Remaining: {currentTime}s");
-            UpdateUI();
+            if (currentTime <= 0)
+            {
+                currentTime = 0;
+                isRunning = false;
+                UpdateUI();
+                OnTimerEnd();
+            }
+            else
+            {
+                Debug.Log($"[GameCountdownTimer] Reduced {amount}s, Remaining: {currentTime}s");
+                UpdateUI();
+            }
         }
 
         private void UpdateUI()
