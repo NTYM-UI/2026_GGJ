@@ -9,6 +9,7 @@ namespace ChatSystem
         // public string contactId; // 不需要手动设置 ID，直接用名字区分
     public string contactName;
     public Sprite avatar; // 头像（可选）
+    public Sprite profileImage; // 个人信息图片
     
     // Excel 对话 ID (如果设置了此ID，优先使用 Excel 对话)
     public int excelDialogId = 0;

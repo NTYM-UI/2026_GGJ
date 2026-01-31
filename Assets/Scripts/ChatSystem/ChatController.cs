@@ -58,6 +58,10 @@ namespace ChatSystem
         [SerializeField] private AudioSource audioSource;
         [SerializeField] private AudioClip notificationSound;
 
+        [Header("Avatar Settings (头像配置)")]
+        [SerializeField] private Sprite playerAvatar; // 玩家自己的头像
+        [SerializeField] private ProfilePopupUI profilePopup; // 个人信息弹窗
+
         private ContactData currentContact;
         private Dictionary<ContactData, ContactItem> contactItemMap = new Dictionary<ContactData, ContactItem>();
         
@@ -563,7 +567,33 @@ namespace ChatSystem
             ChatBubble bubble = bubbleObj.GetComponent<ChatBubble>();
             if (bubble != null)
             {
-                bubble.Setup(msg);
+                // 确定头像
+                Sprite avatarToUse = null;
+                System.Action<RectTransform> onAvatarClick = null;
+
+                if (msg.isSelf)
+                {
+                    avatarToUse = playerAvatar;
+                }
+                else
+                {
+                    if (currentContact != null) 
+                    {
+                        avatarToUse = currentContact.avatar;
+                        
+                        // 只有 NPC (对方) 的头像点击才显示简介
+                        var contactRef = currentContact; // 闭包捕获
+                        onAvatarClick = (rectTransform) => 
+                        {
+                            if (profilePopup != null)
+                            {
+                                profilePopup.Show(contactRef.profileImage, rectTransform);
+                            }
+                        };
+                    }
+                }
+
+                bubble.Setup(msg, avatarToUse, onAvatarClick);
             }
 
             StartCoroutine(ScrollToBottom());

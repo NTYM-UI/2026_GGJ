@@ -46,35 +46,73 @@ namespace ChatSystem
         /// 初始化气泡数据。由 ChatController 在生成气泡时调用。
         /// </summary>
         /// <param name="message">消息数据对象</param>
-        public void Setup(ChatMessage message)
+        /// <param name="avatarSprite">头像图片（可选）</param>
+        /// <param name="onAvatarClick">头像点击回调（可选，带 RectTransform 参数）</param>
+        public void Setup(ChatMessage message, Sprite avatarSprite = null, System.Action<RectTransform> onAvatarClick = null)
         {
-            // 1. 先设置对齐方式和 Padding（这会影响宽度）
+            // 配置参数
+            float avatarSize = 100f;   // 头像大小
+            float spacing = 20f;       // 气泡与头像/边缘的间距
+            float wideSidePadding = 300f;  // 另一侧留白
+
+            // 1. 处理头像显示 (使用标准布局模式)
+            // 确保头像组件上有 LayoutElement 且不忽略布局
+            if (leftAvatarImage != null)
+            {
+                bool showLeft = !message.isSelf;
+                leftAvatarImage.gameObject.SetActive(showLeft);
+                if (showLeft)
+                {
+                    if (avatarSprite != null) leftAvatarImage.sprite = avatarSprite;
+                    SetAvatarLayoutElement(leftAvatarImage, avatarSize);
+                    SetupAvatarButton(leftAvatarImage, onAvatarClick);
+                }
+            }
+            
+            if (rightAvatarImage != null)
+            {
+                bool showRight = message.isSelf;
+                rightAvatarImage.gameObject.SetActive(showRight);
+                if (showRight)
+                {
+                    if (avatarSprite != null) rightAvatarImage.sprite = avatarSprite;
+                    SetAvatarLayoutElement(rightAvatarImage, avatarSize);
+                    // 自己的头像通常不需要点击看简介，但如果需要也可以加上
+                    // SetupAvatarButton(rightAvatarImage, onAvatarClick); 
+                }
+            }
+
+            // 2. 设置 LayoutGroup Padding
+            // 此时头像已经占据了空间，Padding 只需要处理"额外的"留白
             if (layoutGroup != null)
             {
                 layoutGroup.childAlignment = message.isSelf ? TextAnchor.UpperRight : TextAnchor.UpperLeft;
                 
-                int avatarSpacing = 150; // 头像预留空间（加大）
-                int wideSpacing = 400;   // 另一侧留白（加大）
+                // 气泡和头像之间的间距由 LayoutGroup 的 Spacing 控制（如果在 Inspector 里设置了）
+                // 这里我们主要控制左右两侧的额外留白
+                
+                // 注意：如果 HorizontalLayoutGroup 开启了 Child Force Expand Width，需要关掉它，否则气泡会被拉伸
+                layoutGroup.childForceExpandWidth = false; 
+                layoutGroup.childControlWidth = true;
+                layoutGroup.childControlHeight = true;
+                layoutGroup.spacing = spacing; // 设置头像和气泡之间的间距
 
                 if (message.isSelf)
                 {
                     // 自己发的：靠右
-                    layoutGroup.padding = new RectOffset(wideSpacing, avatarSpacing, 0, 0);
+                    // 左边留大白，右边留一点点边距(或者0，因为有头像了)
+                    layoutGroup.padding = new RectOffset((int)wideSidePadding, (int)spacing, 0, 0);
                 }
                 else
                 {
                     // 别人发的：靠左
-                    layoutGroup.padding = new RectOffset(avatarSpacing, wideSpacing, 0, 0);
+                    // 左边留一点点边距，右边留大白
+                    layoutGroup.padding = new RectOffset((int)spacing, (int)wideSidePadding, 0, 0);
                 }
                 
-                // 强制刷新一下父布局，确保宽度生效
+                // 强制刷新
                 LayoutRebuilder.ForceRebuildLayoutImmediate(layoutGroup.GetComponent<RectTransform>());
             }
-
-            // 2. 根据消息来源（isSelf）控制头像的显示与隐藏
-            // 如果是自己，显示右头像；如果是对方，显示左头像
-            if (leftAvatarImage != null) leftAvatarImage.gameObject.SetActive(!message.isSelf);
-            if (rightAvatarImage != null) rightAvatarImage.gameObject.SetActive(message.isSelf);
 
             // 3. 设置气泡背景颜色
             if (bubbleBackground != null)
@@ -82,14 +120,48 @@ namespace ChatSystem
                 bubbleBackground.color = message.isSelf ? selfBubbleColor : otherBubbleColor;
             }
 
-            // 4. 最后设置文本内容并刷新（确保高度计算基于最新的宽度）
+            // 4. 最后设置文本内容并刷新
             if (messageText != null)
             {
                 messageText.text = message.content;
-                
-                // 启动协程确保下一帧刷新，解决复杂的布局嵌套问题
                 StartCoroutine(RefreshLayout());
             }
+        }
+
+        /// <summary>
+        /// 为头像添加点击功能
+        /// </summary>
+        private void SetupAvatarButton(Image avatar, System.Action<RectTransform> onClick)
+        {
+            if (onClick == null) return;
+
+            Button btn = avatar.GetComponent<Button>();
+            if (btn == null) btn = avatar.gameObject.AddComponent<Button>();
+            
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => onClick.Invoke(avatar.rectTransform));
+        }
+
+        /// <summary>
+        /// 设置头像的布局属性 (标准布局)
+        /// </summary>
+        private void SetAvatarLayoutElement(Image avatar, float size)
+        {
+            // 确保有 LayoutElement 并参与布局
+            LayoutElement le = avatar.GetComponent<LayoutElement>();
+            if (le == null) le = avatar.gameObject.AddComponent<LayoutElement>();
+            
+            le.ignoreLayout = false; // 参与布局！
+            le.minWidth = size;
+            le.preferredWidth = size;
+            le.flexibleWidth = 0; // 不伸缩
+            le.minHeight = size;
+            le.preferredHeight = size;
+            le.flexibleHeight = 0;
+            
+            // 重置 RectTransform，防止之前的绝对定位残留影响
+            RectTransform rt = avatar.rectTransform;
+            rt.anchoredPosition = Vector2.zero;
         }
 
         private System.Collections.IEnumerator RefreshLayout()
