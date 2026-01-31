@@ -53,6 +53,7 @@ namespace ChatSystem
         
         // 用于控制对话流程的变量
         private System.Action<int> onOptionSelectedCallback;
+        private bool isWaitingForOption = false; // 是否正在等待玩家选择选项
 
         // 存储所有聊天消息的列表 (不再使用全局列表，改为使用 currentContact.messageHistory)
         // private List<ChatMessage> messages = new List<ChatMessage>();
@@ -134,6 +135,13 @@ namespace ChatSystem
 
         private void OnContactSelected(ContactData contact)
         {
+            // 如果正在等待选项，禁止切换联系人
+            if (isWaitingForOption)
+            {
+                Debug.Log("[ChatController] Cannot switch contact while waiting for option selection.");
+                return;
+            }
+
             if (currentContact == contact) return;
             SwitchToContact(contact);
         }
@@ -217,6 +225,11 @@ namespace ChatSystem
             }
         }
 
+        public ContactData GetContactByName(string name)
+        {
+            return contacts.Find(c => c.contactName == name);
+        }
+
         /// <summary>
         /// 延迟触发下一段对话
         /// </summary>
@@ -266,6 +279,7 @@ namespace ChatSystem
 
             // 设置回调
             onOptionSelectedCallback = onSelected;
+            isWaitingForOption = true; // 锁定联系人切换
 
             // 清理旧选项
             ClearOptions();
@@ -297,6 +311,8 @@ namespace ChatSystem
         /// </summary>
         private void OnOptionSelected(string selectedOption, int index)
         {
+            isWaitingForOption = false; // 解锁联系人切换
+
             // 1. 清空选项按钮，但保持容器可见
             ClearOptions();
             // optionsContainer.gameObject.SetActive(false); // 保持常显
@@ -336,12 +352,36 @@ namespace ChatSystem
         /// </summary>
         public void AddMessage(string text, bool isSelf)
         {
-            if (string.IsNullOrEmpty(text)) return;
-            if (currentContact == null) return;
+            AddMessageToContact(text, isSelf, currentContact);
+        }
 
+        /// <summary>
+        /// 指定联系人添加消息
+        /// </summary>
+        public void AddMessageToContact(string text, bool isSelf, ContactData targetContact)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            if (targetContact == null) return;
+
+            // 1. 添加到该联系人的历史记录
             ChatMessage msg = new ChatMessage(text, isSelf);
-            currentContact.messageHistory.Add(msg);
-            CreateBubble(msg);
+            targetContact.messageHistory.Add(msg);
+
+            // 2. 如果当前正好显示的是该联系人，则立即生成气泡
+            if (currentContact == targetContact)
+            {
+                CreateBubble(msg);
+            }
+            // 3. 否则，标记为未读（仅限对方发的消息）
+            else if (!isSelf)
+            {
+                targetContact.isUnread = true;
+                if (contactItemMap.ContainsKey(targetContact))
+                {
+                    contactItemMap[targetContact].SetUnread(true);
+                }
+                PlayNotificationSound();
+            }
         }
 
         private void CreateBubble(ChatMessage msg)

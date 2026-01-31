@@ -20,6 +20,8 @@ public class DialogItem
     public float delay;      // 延迟时间（I列，秒）
     public string task;      // 任务（J列）
     public string optionDesc; // 选项描述（K列，显示在按钮上但不上屏）
+    public int costTime;     // 消耗时间（M列，秒）
+    public float totalTime;  // 总时间（N列，秒，通常只在第一行配置）
 }
 
 public class DialogInfo : MonoBehaviour
@@ -35,6 +37,27 @@ public class DialogInfo : MonoBehaviour
     {
         // 加载对话表格
         dialogDict = DialogXls.LoadDialogAsDictionary();
+        
+        // 尝试从表格中获取总时间配置 (遍历寻找第一个非0的 totalTime)
+        if (dialogDict != null)
+        {
+            foreach (var kvp in dialogDict)
+            {
+                foreach (var item in kvp.Value)
+                {
+                    if (item.totalTime > 0)
+                    {
+                        Debug.Log($"[DialogInfo] Found TotalTime config in Excel: {item.totalTime}");
+                        if (Core.TimeSystem.GameCountdownTimer.Instance != null)
+                        {
+                            Core.TimeSystem.GameCountdownTimer.Instance.SetTotalTime(item.totalTime);
+                        }
+                        goto FoundTime; // 找到后跳出所有循环
+                    }
+                }
+            }
+        }
+        FoundTime:;
         
         if (chatController == null)
             chatController = FindObjectOfType<ChatController>();
@@ -125,6 +148,16 @@ public class DialogInfo : MonoBehaviour
                                 // 选中选项，跳转到对应的 jumpId
                                 DialogItem selectedItem = items[selectedIndex];
                                 Debug.Log($"[DialogInfo] Option selected: {selectedItem.content}, Jumping to: {selectedItem.jumpId}");
+
+                                // 扣除时间 (M列)
+                                if (selectedItem.costTime > 0)
+                                {
+                                    if (Core.TimeSystem.GameCountdownTimer.Instance != null)
+                                    {
+                                        Core.TimeSystem.GameCountdownTimer.Instance.ReduceTime(selectedItem.costTime);
+                                    }
+                                }
+
                                 currentDialogId = selectedItem.jumpId;
                                 
                                 // 这里可以处理 effect，比如增加好感度等
@@ -182,11 +215,33 @@ public class DialogInfo : MonoBehaviour
                     }
 
                     EventManager.Instance.TriggerEvent(GameEvents.DIALOG_END, currentDialogId);
+                    
+                    // 检查游戏胜利条件：到达END且处于安全阶段(ID >= 12001)
+                    if (Core.TimeSystem.GameCountdownTimer.Instance != null && Core.TimeSystem.GameCountdownTimer.Instance.isSafePhase)
+                    {
+                        Debug.Log("[DialogInfo] Reached END in Safe Phase. Triggering GAME_WIN.");
+                        EventManager.Instance.TriggerEvent(GameEvents.GAME_WIN, null);
+                    }
+                    
                     break;
                 }
 
                 // 处理普通消息 (# 或其他)
                 bool isSelf = (current.position == "Right" || current.position == "右");
+                
+                // 扣除时间 (M列) - 普通对话也生效
+                if (current.costTime > 0)
+                {
+                    Debug.Log($"[DialogInfo] Try reducing time: {current.costTime}. Timer Instance: {Core.TimeSystem.GameCountdownTimer.Instance}");
+                    if (Core.TimeSystem.GameCountdownTimer.Instance != null)
+                    {
+                        Core.TimeSystem.GameCountdownTimer.Instance.ReduceTime(current.costTime);
+                    }
+                    else
+                    {
+                        Debug.LogError("[DialogInfo] GameCountdownTimer Instance is NULL! Time will not be reduced.");
+                    }
+                }
                 
                 // 延迟逻辑：如果是第一条消息，且是对方发的，直接显示不等待
                 if (isFirstMessage && !isSelf)
@@ -212,11 +267,38 @@ public class DialogInfo : MonoBehaviour
 
                 if (chatController != null)
                 {
-                    chatController.AddMessage(current.content, isSelf);
+                    // 查找目标联系人（如果表格里指定了 Character）
+                    // 如果 Character 为空，则默认发给当前正在聊天的对象
+                    ContactData targetContact = null;
+                    if (!string.IsNullOrEmpty(current.character))
+                    {
+                        targetContact = chatController.GetContactByName(current.character);
+                    }
+                    
+                    if (targetContact != null)
+                    {
+                        chatController.AddMessageToContact(current.content, isSelf, targetContact);
+                    }
+                    else
+                    {
+                        // 没找到或者没填，就发给当前界面（回退逻辑）
+                        chatController.AddMessage(current.content, isSelf);
+                    }
                 }
 
                 // 跳转到下一句
                 currentDialogId = current.jumpId;
+                
+                // 检查是否达到安全节点 (ID >= 12001)
+                // 只要触发过一次 >= 12001，就认为进入安全阶段
+                if (currentDialogId >= 12001)
+                {
+                    if (Core.TimeSystem.GameCountdownTimer.Instance != null && !Core.TimeSystem.GameCountdownTimer.Instance.isSafePhase)
+                    {
+                        Core.TimeSystem.GameCountdownTimer.Instance.isSafePhase = true;
+                        Debug.Log($"[DialogInfo] Reached checkpoint {currentDialogId}, Safe Phase enabled.");
+                    }
+                }
             }
         }
         

@@ -57,6 +57,24 @@ namespace XlsWork.Dialogs
                 item.task = sheet.Cells[row, 10].Text;       // J列：任务
                 item.optionDesc = sheet.Cells[row, 11].Text; // K列：选项描述
 
+                // M列：消耗时间 (第13列)
+                string costText = sheet.Cells[row, 13].Text;
+                if (int.TryParse(costText, out int cost))
+                {
+                    item.costTime = cost;
+                    if (cost > 0) Debug.Log($"[DialogXls] Row {row} (ID:{id}) loaded CostTime: {cost}");
+                }
+                else
+                {
+                    item.costTime = 0;
+                }
+
+                // N列：总时间 (第14列)
+                if (float.TryParse(sheet.Cells[row, 14].Text, out float tTime))
+                {
+                    item.totalTime = tTime;
+                }
+
                 // 存入字典（支持同 ID 多条数据）
                 if (!dialogDict.ContainsKey(item.id))
                 {
