@@ -55,6 +55,14 @@ namespace ChatSystem
         private System.Action<int> onOptionSelectedCallback;
         private bool isWaitingForOption = false; // 是否正在等待玩家选择选项
 
+        // 待处理的选项队列 (联系人 -> 选项数据)
+        private class PendingOptionData
+        {
+            public string[] options;
+            public System.Action<int> callback;
+        }
+        private Dictionary<ContactData, PendingOptionData> pendingOptions = new Dictionary<ContactData, PendingOptionData>();
+
         // 存储所有聊天消息的列表 (不再使用全局列表，改为使用 currentContact.messageHistory)
         // private List<ChatMessage> messages = new List<ChatMessage>();
 
@@ -133,14 +141,12 @@ namespace ChatSystem
             }
         }
 
+        private PendingOptionData currentOptions; // 当前正在显示的选项数据
+
         private void OnContactSelected(ContactData contact)
         {
-            // 如果正在等待选项，禁止切换联系人
-            if (isWaitingForOption)
-            {
-                Debug.Log("[ChatController] Cannot switch contact while waiting for option selection.");
-                return;
-            }
+            // 移除 isWaitingForOption 的限制，允许随时切换
+            // if (isWaitingForOption) ...
 
             if (currentContact == contact) return;
             SwitchToContact(contact);
@@ -148,6 +154,23 @@ namespace ChatSystem
 
         public void SwitchToContact(ContactData contact)
         {
+            // 0. 如果当前有未处理的选项，保存到 pending 队列中
+            if (isWaitingForOption && currentOptions != null && currentContact != null)
+            {
+                Debug.Log($"[ChatController] Saving pending options for {currentContact.contactName} before switching.");
+                pendingOptions[currentContact] = currentOptions;
+                
+                // 可选：标记为未读以提示用户回来处理
+                // currentContact.isUnread = true;
+                // if (contactItemMap.ContainsKey(currentContact))
+                //    contactItemMap[currentContact].SetUnread(true);
+            }
+
+            // 清理当前的选项显示状态（但不清除数据，数据已保存）
+            ClearOptions();
+            isWaitingForOption = false;
+            currentOptions = null;
+
             currentContact = contact;
 
             // 清除未读状态
@@ -172,7 +195,23 @@ namespace ChatSystem
                 CreateBubble(msg);
             }
 
-            // 3. 检查是否有待触发的新对话 (无论是第一次还是后续追加)
+            // 3. 检查该联系人是否有待处理的选项
+            if (pendingOptions.ContainsKey(contact))
+            {
+                var data = pendingOptions[contact];
+                pendingOptions.Remove(contact);
+                Debug.Log($"[ChatController] Showing pending options for {contact.contactName}");
+                ShowOptions(data.options, data.callback, contact);
+            }
+            else
+            {
+                // 如果没有选项，确保选项界面被清理（防止从一个有选项的界面切换过来残留）
+                // 注意：理论上被锁定时无法切换，但为了保险起见
+                ClearOptions();
+                isWaitingForOption = false;
+            }
+
+            // 4. 检查是否有待触发的新对话 (无论是第一次还是后续追加)
             if (contact.excelDialogId > 0)
             {
                 // 暂时保存 ID
@@ -269,7 +308,7 @@ namespace ChatSystem
         /// </summary>
         /// <param name="options">选项文本数组</param>
         /// <param name="onSelected">选择后的回调，参数为选项索引</param>
-        public void ShowOptions(string[] options, System.Action<int> onSelected)
+        public void ShowOptions(string[] options, System.Action<int> onSelected, ContactData targetContact = null)
         {
             if (optionsContainer == null || optionButtonPrefab == null)
             {
@@ -277,33 +316,56 @@ namespace ChatSystem
                 return;
             }
 
-            // 设置回调
-            onOptionSelectedCallback = onSelected;
-            isWaitingForOption = true; // 锁定联系人切换
+            // 如果未指定联系人，默认为当前联系人
+            if (targetContact == null) targetContact = currentContact;
 
-            // 清理旧选项
-            ClearOptions();
-
-            // 显示容器
-            optionsContainer.gameObject.SetActive(true);
-
-            // 生成新选项
-            for (int i = 0; i < options.Length; i++)
+            // 只有当目标联系人是当前正在显示的联系人时，才立即显示选项
+            if (targetContact == currentContact)
             {
-                string optionText = options[i];
-                int index = i; // 捕获索引
-                GameObject btnObj = Instantiate(optionButtonPrefab, optionsContainer);
-                ChatOptionButton btnScript = btnObj.GetComponent<ChatOptionButton>();
+                // 设置回调
+                onOptionSelectedCallback = onSelected;
+                isWaitingForOption = true; 
                 
-                if (btnScript != null)
+                // 记录当前选项数据
+                currentOptions = new PendingOptionData { options = options, callback = onSelected };
+
+                // 清理旧选项
+                ClearOptions();
+
+                // 显示容器
+                optionsContainer.gameObject.SetActive(true);
+
+                // 生成新选项
+                for (int i = 0; i < options.Length; i++)
                 {
-                    // 绑定点击事件
-                    btnScript.Setup(optionText, () => OnOptionSelected(optionText, index));
+                    string optionText = options[i];
+                    int index = i; // 捕获索引
+                    GameObject btnObj = Instantiate(optionButtonPrefab, optionsContainer);
+                    ChatOptionButton btnScript = btnObj.GetComponent<ChatOptionButton>();
+                    
+                    if (btnScript != null)
+                    {
+                        // 绑定点击事件
+                        btnScript.Setup(optionText, () => OnOptionSelected(optionText, index));
+                    }
                 }
+                
+                // 强制滚动到底部，确保选项可见
+                StartCoroutine(ScrollToBottom());
             }
-            
-            // 强制滚动到底部，确保选项可见
-            StartCoroutine(ScrollToBottom());
+            else
+            {
+                // 否则，加入等待队列，并标记该联系人有未读消息
+                Debug.Log($"[ChatController] Options for {targetContact.contactName} queued (not current contact).");
+                pendingOptions[targetContact] = new PendingOptionData { options = options, callback = onSelected };
+                
+                targetContact.isUnread = true;
+                if (contactItemMap.ContainsKey(targetContact))
+                {
+                    contactItemMap[targetContact].SetUnread(true);
+                }
+                PlayNotificationSound();
+            }
         }
 
         /// <summary>
@@ -311,7 +373,8 @@ namespace ChatSystem
         /// </summary>
         private void OnOptionSelected(string selectedOption, int index)
         {
-            isWaitingForOption = false; // 解锁联系人切换
+            isWaitingForOption = false; 
+            currentOptions = null;
 
             // 1. 清空选项按钮，但保持容器可见
             ClearOptions();
@@ -344,6 +407,19 @@ namespace ChatSystem
             foreach (Transform child in optionsContainer)
             {
                 Destroy(child.gameObject);
+            }
+        }
+
+        public void ClearAllPendingOptions()
+        {
+            pendingOptions.Clear();
+            // 如果当前正在显示选项，也应该清理？
+            // 如果这个方法是在“开始新对话”时调用，那么当前显示的选项（如果有）也应该被废弃。
+            if (isWaitingForOption)
+            {
+                ClearOptions();
+                isWaitingForOption = false;
+                currentOptions = null;
             }
         }
 

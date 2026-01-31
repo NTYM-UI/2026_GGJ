@@ -81,6 +81,12 @@ public class DialogInfo : MonoBehaviour
 
         Debug.Log($"[DialogInfo] Received DIALOG_START event with ID: {startId}");
 
+        // 开始新对话前，清理所有旧的 pending 选项，防止状态冲突
+        if (chatController != null)
+        {
+            chatController.ClearAllPendingOptions();
+        }
+
         if (startId > 0 && dialogDict.ContainsKey(startId))
         {
             Debug.Log($"[DialogInfo] Found ID {startId} in dictionary. Starting sequence.");
@@ -97,6 +103,7 @@ public class DialogInfo : MonoBehaviour
     private IEnumerator RunDialogSequence()
     {
         bool isFirstMessage = true; // 标记是否为第一条消息
+        ChatSystem.ContactData activeContact = null; // 记录当前对话的活跃联系人
 
         while (currentDialogId > 0 && dialogDict.ContainsKey(currentDialogId))
         {
@@ -122,57 +129,62 @@ public class DialogInfo : MonoBehaviour
                 Debug.Log($"[DialogInfo] Displaying {items.Count} options.");
                 
                 // 收集选项文本
-                    string[] optionTexts = new string[items.Count];
-                    for (int i = 0; i < items.Count; i++)
+                string[] optionTexts = new string[items.Count];
+                for (int i = 0; i < items.Count; i++)
+                {
+                    // 优先使用 K 列 (OptionDesc) 作为按钮显示文本
+                    // 如果 K 列为空，则回退使用 E 列 (Content)
+                    if (!string.IsNullOrEmpty(items[i].optionDesc))
                     {
-                        // 优先使用 K 列 (OptionDesc) 作为按钮显示文本
-                        // 如果 K 列为空，则回退使用 E 列 (Content)
-                        if (!string.IsNullOrEmpty(items[i].optionDesc))
-                        {
-                            optionTexts[i] = items[i].optionDesc;
-                        }
-                        else
-                        {
-                            optionTexts[i] = items[i].content;
-                        }
+                        optionTexts[i] = items[i].optionDesc;
                     }
+                    else
+                    {
+                        optionTexts[i] = items[i].content;
+                    }
+                }
 
-                    bool optionSelected = false;
+                bool optionSelected = false;
 
                 // 显示选项并等待回调
                 if (chatController != null)
                 {
+                    // 传递 activeContact，确保选项只在该联系人界面显示
                     chatController.ShowOptions(optionTexts, (selectedIndex) => {
                         if (selectedIndex >= 0 && selectedIndex < items.Count)
+                        {
+                            // 选中选项，跳转到对应的 jumpId
+                            DialogItem selectedItem = items[selectedIndex];
+                            Debug.Log($"[DialogInfo] Option selected: {selectedItem.content}, Jumping to: {selectedItem.jumpId}");
+
+                            // 扣除时间 (M列)
+                            if (selectedItem.costTime > 0)
                             {
-                                // 选中选项，跳转到对应的 jumpId
-                                DialogItem selectedItem = items[selectedIndex];
-                                Debug.Log($"[DialogInfo] Option selected: {selectedItem.content}, Jumping to: {selectedItem.jumpId}");
-
-                                // 扣除时间 (M列)
-                                if (selectedItem.costTime > 0)
+                                if (Core.TimeSystem.GameCountdownTimer.Instance != null)
                                 {
-                                    if (Core.TimeSystem.GameCountdownTimer.Instance != null)
-                                    {
-                                        Core.TimeSystem.GameCountdownTimer.Instance.ReduceTime(selectedItem.costTime);
-                                    }
+                                    Core.TimeSystem.GameCountdownTimer.Instance.ReduceTime(selectedItem.costTime);
                                 }
-
-                                currentDialogId = selectedItem.jumpId;
-                                
-                                // 这里可以处理 effect，比如增加好感度等
-                                // ProcessEffect(selectedItem.effect);
-                                
-                                // 将选中的内容作为玩家气泡发送出去
-                                // 注意：即使按钮显示的是 K 列，发出去的依然是 E 列 (Content)
-                                if (chatController != null)
-                                {
-                                    chatController.AddMessage(selectedItem.content, true);
-                                }
-
-                                optionSelected = true;
                             }
-                    });
+
+                            currentDialogId = selectedItem.jumpId;
+                            
+                            // 这里可以处理 effect，比如增加好感度等
+                            // ProcessEffect(selectedItem.effect);
+                            
+                            // 将选中的内容作为玩家气泡发送出去
+                            // 注意：即使按钮显示的是 K 列，发出去的依然是 E 列 (Content)
+                            if (chatController != null)
+                            {
+                                // 确保发给正确的联系人
+                                if (activeContact != null)
+                                    chatController.AddMessageToContact(selectedItem.content, true, activeContact);
+                                else
+                                    chatController.AddMessage(selectedItem.content, true);
+                            }
+
+                            optionSelected = true;
+                        }
+                    }, activeContact); // 传入 activeContact
                 }
                 else
                 {
@@ -269,10 +281,16 @@ public class DialogInfo : MonoBehaviour
                 {
                     // 查找目标联系人（如果表格里指定了 Character）
                     // 如果 Character 为空，则默认发给当前正在聊天的对象
-                    ContactData targetContact = null;
+                    ChatSystem.ContactData targetContact = null;
                     if (!string.IsNullOrEmpty(current.character))
                     {
                         targetContact = chatController.GetContactByName(current.character);
+                        if (targetContact != null) activeContact = targetContact; // 更新活跃联系人
+                    }
+                    else if (activeContact != null)
+                    {
+                        // 如果当前行没填名字，但之前已经确定了活跃联系人，就沿用
+                        targetContact = activeContact;
                     }
                     
                     if (targetContact != null)
