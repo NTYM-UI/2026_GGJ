@@ -21,7 +21,7 @@ namespace UI
 
         private void OnDisable()
         {
-            if (EventManager.Instance != null)
+            if (EventManager.HasInstance)
             {
                 EventManager.Instance.Unsubscribe(GameEvents.GAME_WIN, OnGameWin);
                 EventManager.Instance.Unsubscribe(GameEvents.GAME_FAIL, OnGameFail);
@@ -68,7 +68,16 @@ namespace UI
             Debug.Log($"[GameResultUI] Loading Menu Scene: {menuSceneName}");
             // 恢复时间流速（以防之前暂停了）
             Time.timeScale = 1.0f;
-            SceneManager.LoadScene(menuSceneName);
+            
+            // Use SceneTransitionManager if available, otherwise fallback
+            if (Core.SceneTransitionManager.Instance != null)
+            {
+                Core.SceneTransitionManager.Instance.LoadScene(menuSceneName);
+            }
+            else
+            {
+                SceneManager.LoadScene(menuSceneName);
+            }
         }
 
         /// <summary>
@@ -78,7 +87,18 @@ namespace UI
         {
             Debug.Log("[GameResultUI] Restarting Level");
             Time.timeScale = 1.0f;
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            
+            string currentScene = SceneManager.GetActiveScene().name;
+            
+            // Use SceneTransitionManager if available, otherwise fallback
+            if (Core.SceneTransitionManager.Instance != null)
+            {
+                Core.SceneTransitionManager.Instance.LoadScene(currentScene);
+            }
+            else
+            {
+                SceneManager.LoadScene(currentScene);
+            }
         }
     }
 }

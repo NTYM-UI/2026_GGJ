@@ -81,8 +81,23 @@ namespace Core
             rect.anchoredPosition = Vector2.zero;
         }
 
+        // 全局标志位：是否是从主菜单进入
+        // 默认为 true (假设第一次运行就是从主菜单或者直接进游戏场景算作第一次)
+        public bool IsFirstTimeFromMenu { get; private set; } = true;
+
         public void LoadScene(string sceneName)
         {
+            // 如果是从 MainMenu 加载 GameScene，则标记为 FirstTime
+            if (SceneManager.GetActiveScene().name == "MainMenu" && sceneName == "GameScene")
+            {
+                IsFirstTimeFromMenu = true;
+            }
+            // 否则（比如 Restart），标记为 false
+            else if (sceneName == SceneManager.GetActiveScene().name)
+            {
+                IsFirstTimeFromMenu = false;
+            }
+
             StartCoroutine(TransitionRoutine(sceneName));
         }
 

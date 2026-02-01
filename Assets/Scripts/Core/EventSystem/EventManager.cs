@@ -37,6 +37,11 @@ namespace Core.EventSystem
         // 存储事件名和对应的委托列表
         private Dictionary<string, Action<object>> eventDictionary;
 
+        private void OnApplicationQuit()
+        {
+            applicationIsQuitting = true;
+        }
+
         void Awake()
         {
             if (instance != null && instance != this)

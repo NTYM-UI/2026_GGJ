@@ -78,11 +78,51 @@ namespace ChatSystem
         }
         private Dictionary<ContactData, PendingOptionData> pendingOptions = new Dictionary<ContactData, PendingOptionData>();
 
+        // 催促消息相关
+        private float optionWaitTimer = 0f;
+        private const float OPTION_WAIT_THRESHOLD = 15f;
+        private readonly string[] urgeMessages = new string[] { "？", "人呢", "冷暴力我？", "？说话" };
+
+        private void Update()
+        {
+            // 检测是否在等待选项选择
+            if (isWaitingForOption && currentContact != null)
+            {
+                optionWaitTimer += Time.deltaTime;
+                if (optionWaitTimer >= OPTION_WAIT_THRESHOLD)
+                {
+                    optionWaitTimer = 0f; // 重置计时器，开始下一个循环
+                    SendUrgeMessage();
+                }
+            }
+            else
+            {
+                optionWaitTimer = 0f;
+            }
+        }
+
+        private void SendUrgeMessage()
+        {
+            if (currentContact == null) return;
+            
+            // 随机选取一条消息
+            int index = UnityEngine.Random.Range(0, urgeMessages.Length);
+            string message = urgeMessages[index];
+            
+            // 作为对方发送的消息 (isSelf = false)
+            AddMessageToContact(message, false, currentContact);
+        }
+
         // 存储所有聊天消息的列表 (不再使用全局列表，改为使用 currentContact.messageHistory)
         // private List<ChatMessage> messages = new List<ChatMessage>();
 
+        public static ChatController Instance { get; private set; }
+
         private void Awake()
         {
+            if (Instance == null) Instance = this;
+            else Destroy(gameObject);
+
             if (contentContainer == null)
             {
                 Transform viewport = transform.Find("Scroll View/Viewport/Content");
@@ -99,6 +139,43 @@ namespace ChatSystem
             
             if (audioSource == null) audioSource = GetComponent<AudioSource>();
             if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
+
+            // [FIX] 主动检查场景中是否有教程弹窗，避免执行顺序问题导致 TutorialPopupUI 没来得及通知
+            // 如果存在教程脚本，且它所挂载的物体是激活的（或即将激活），则暂停消息
+            // 注意：使用 FindObjectOfType(true) 可以找到隐藏的物体
+            var tutorial = FindObjectOfType<UI.TutorialPopupUI>(true);
+            if (tutorial != null)
+            {
+                // 检查是否是从主菜单第一次进入 (通过 SceneTransitionManager)
+                // 如果 SceneTransitionManager 不存在（直接在 GameScene 启动），默认视为 true
+                bool showTutorial = true;
+                if (Core.SceneTransitionManager.Instance != null)
+                {
+                    showTutorial = Core.SceneTransitionManager.Instance.IsFirstTimeFromMenu;
+                }
+
+                if (showTutorial)
+                {
+                    Debug.Log("[ChatController] Detected TutorialPopupUI in scene. Pausing chat.");
+                    SetTutorialActive(true);
+                    
+                    // 确保它是激活的
+                    if (!tutorial.gameObject.activeSelf)
+                    {
+                        tutorial.gameObject.SetActive(true);
+                    }
+                }
+                else
+                {
+                    Debug.Log("[ChatController] Not first time (Restart), skipping tutorial.");
+                    // 确保教程是隐藏的
+                    if (tutorial.gameObject.activeSelf)
+                    {
+                        tutorial.gameObject.SetActive(false);
+                    }
+                    SetTutorialActive(false);
+                }
+            }
         }
 
         private void Start()
@@ -167,6 +244,35 @@ namespace ChatSystem
             SwitchToContact(contact);
         }
 
+        private bool isTutorialActive = false;
+        public bool IsTutorialActive => isTutorialActive; // 公开属性供外部访问
+
+        public void SetTutorialActive(bool active)
+        {
+            isTutorialActive = active;
+        }
+
+        public void CompleteTutorial()
+        {
+            // 启动协程延迟处理
+            StartCoroutine(CompleteTutorialDelayed());
+        }
+
+        private IEnumerator CompleteTutorialDelayed()
+        {
+            isTutorialActive = false;
+            
+            // 等待1秒
+            yield return new WaitForSeconds(1.0f);
+
+            // 检查当前联系人是否有待触发的对话
+            if (currentContact != null && currentContact.excelDialogId > 0)
+            {
+                Debug.Log($"[ChatController] Tutorial completed. Triggering delayed dialog for {currentContact.contactName}");
+                TriggerNewDialog(currentContact.contactName, currentContact.excelDialogId);
+            }
+        }
+
         public void SwitchToContact(ContactData contact)
         {
             // 0. 如果当前有未处理的选项，保存到 pending 队列中
@@ -229,6 +335,13 @@ namespace ChatSystem
             // 4. 检查是否有待触发的新对话 (无论是第一次还是后续追加)
             if (contact.excelDialogId > 0)
             {
+                // 如果教程未完成，暂不触发
+                if (isTutorialActive)
+                {
+                    Debug.Log($"[ChatController] Tutorial is active. Deferring dialog for {contact.contactName}.");
+                    return;
+                }
+
                 // 暂时保存 ID
                 int startId = contact.excelDialogId;
                 Debug.Log($"[ChatController] Triggering dialog for contact {contact.contactName}. ID: {startId}");

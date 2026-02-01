@@ -56,6 +56,13 @@ namespace Core.TimeSystem
         {
             if (!isRunning) return;
 
+            // 如果教程正在进行，暂停倒计时
+            // 通过 ChatController 检查教程状态
+            if (ChatSystem.ChatController.Instance != null && ChatSystem.ChatController.Instance.IsTutorialActive)
+            {
+                return;
+            }
+
             // 倒计时
             if (currentTime > 0)
             {

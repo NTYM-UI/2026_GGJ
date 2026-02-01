@@ -71,7 +71,10 @@ public class DialogInfo : MonoBehaviour
 
     private void OnDisable()
     {
-        EventManager.Instance.Unsubscribe(GameEvents.DIALOG_START, OnDialogStartEvent);
+        if (EventManager.HasInstance)
+        {
+            EventManager.Instance.Unsubscribe(GameEvents.DIALOG_START, OnDialogStartEvent);
+        }
     }
 
     private void OnDialogStartEvent(object eventData)
