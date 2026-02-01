@@ -21,6 +21,10 @@ namespace ChatSystem
     // 是否有未读消息
     public bool isUnread = false;
 
+    // 催促消息计时器 (运行时数据)
+    [System.NonSerialized]
+    public float optionWaitTimer = 0f;
+
     public ContactData(string name)
     {
         this.contactName = name;

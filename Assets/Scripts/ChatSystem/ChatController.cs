@@ -87,38 +87,56 @@ namespace ChatSystem
         private Dictionary<ContactData, PendingOptionData> pendingOptions = new Dictionary<ContactData, PendingOptionData>();
 
         // 催促消息相关
-        private float optionWaitTimer = 0f;
+        // private float optionWaitTimer = 0f; // Moved to ContactData
         private const float OPTION_WAIT_THRESHOLD = 15f;
         private readonly string[] urgeMessages = new string[] { "？", "人呢", "冷暴力我？", "？说话" };
 
         private void Update()
         {
-            // 检测是否在等待选项选择
+            // 1. 处理当前联系人的等待逻辑
             if (isWaitingForOption && currentContact != null)
             {
-                optionWaitTimer += Time.deltaTime;
-                if (optionWaitTimer >= OPTION_WAIT_THRESHOLD)
-                {
-                    optionWaitTimer = 0f; // 重置计时器，开始下一个循环
-                    SendUrgeMessage();
-                }
+                UpdateContactTimer(currentContact);
             }
-            else
+            else if (currentContact != null)
             {
-                optionWaitTimer = 0f;
+                // 如果当前联系人不再等待，重置计时器 (防止切回来时残留)
+                currentContact.optionWaitTimer = 0f;
+            }
+
+            // 2. 处理后台挂起联系人的等待逻辑
+            // 使用 keys 副本以防万一
+            var pendingContacts = new List<ContactData>(pendingOptions.Keys);
+            foreach (var contact in pendingContacts)
+            {
+                // 确保不是当前联系人（虽然逻辑上 pending 里不应该有 current，除非刚切走且还没清理）
+                if (contact != currentContact)
+                {
+                    UpdateContactTimer(contact);
+                }
             }
         }
 
-        private void SendUrgeMessage()
+        private void UpdateContactTimer(ContactData contact)
         {
-            if (currentContact == null) return;
+            contact.optionWaitTimer += Time.deltaTime;
+            if (contact.optionWaitTimer >= OPTION_WAIT_THRESHOLD)
+            {
+                contact.optionWaitTimer = 0f; // 重置计时器，开始下一个循环
+                SendUrgeMessage(contact);
+            }
+        }
+
+        private void SendUrgeMessage(ContactData targetContact)
+        {
+            if (targetContact == null) return;
             
             // 随机选取一条消息
             int index = UnityEngine.Random.Range(0, urgeMessages.Length);
             string message = urgeMessages[index];
             
             // 作为对方发送的消息 (isSelf = false)
-            AddMessageToContact(message, false, currentContact);
+            AddMessageToContact(message, false, targetContact);
         }
 
         // 存储所有聊天消息的列表 (不再使用全局列表，改为使用 currentContact.messageHistory)
@@ -490,6 +508,12 @@ namespace ChatSystem
             // 如果未指定联系人，默认为当前联系人
             if (targetContact == null) targetContact = currentContact;
 
+            // 新选项出现，重置该联系人的计时器
+            if (targetContact != null)
+            {
+                targetContact.optionWaitTimer = 0f;
+            }
+
             // 只有当目标联系人是当前正在显示的联系人时，才立即显示选项
             if (targetContact == currentContact)
             {
@@ -583,6 +607,12 @@ namespace ChatSystem
         {
             isWaitingForOption = false; 
             currentOptions = null;
+
+            // 重置当前联系人计时器
+            if (currentContact != null)
+            {
+                currentContact.optionWaitTimer = 0f;
+            }
 
             // 1. 清空选项按钮，但保持容器可见
             ClearOptions();
