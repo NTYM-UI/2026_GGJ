@@ -770,6 +770,60 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1099010872}
   m_CullTransparentMesh: 1
+--- !u!1 &1131604159
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 7
+  m_Component:
+  - component: {fileID: 1131604161}
+  - component: {fileID: 1131604160}
+  m_Layer: 0
+  m_HasEditorInfo: 1
+  m_Name: AudioManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1131604160
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1131604159}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc994fbb983d6b04e8c09e165a51af68, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  buttonClickSound: {fileID: 8300000, guid: f64b8206b6ca49f4fb5e1ea46ad1c453, type: 3}
+  optionClickSound: {fileID: 8300000, guid: 7fd1fd2da5e83c84b86d6be8b9894a63, type: 3}
+  popupOpenSound: {fileID: 8300000, guid: 46a856f17d90be04e85fefb813e4997e, type: 3}
+  messageSound: {fileID: 8300000, guid: 97a4043b7fd67d841adef0293064722c, type: 3}
+  notificationSound: {fileID: 8300000, guid: bb928fa880986f14eb554d4eace22fe9, type: 3}
+  backgroundMusic: {fileID: 0}
+  sfxVolume: 0.5
+  musicVolume: 1
+  messageVolumeScale: 0.2
+--- !u!4 &1131604161
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1131604159}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -4.664015, y: 4.7747364, z: 24.09993}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1231930506
 GameObject:
   m_ObjectHideFlags: 0
@@ -1287,3 +1341,4 @@ SceneRoots:
   - {fileID: 478703495}
   - {fileID: 1488998717}
   - {fileID: 1938884452}
+  - {fileID: 1131604161}

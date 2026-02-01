@@ -52,6 +52,7 @@ namespace UI
         private void OnGameFail(object data)
         {
             Debug.Log("[GameResultUI] Game Fail! Showing Fail Panel.");
+            Core.AudioManager.Instance?.PlayPopupSound();
             if (failPanel != null)
             {
                 failPanel.SetActive(true);

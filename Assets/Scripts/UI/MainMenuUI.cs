@@ -15,7 +15,10 @@ namespace UI
         public void OnStartButtonClick()
         {
             Debug.Log($"[MainMenuUI] Start Game clicked. Loading scene: {gameSceneName}");
-            SceneManager.LoadScene(gameSceneName);
+            // Play sound
+            Core.AudioManager.Instance?.PlayButtonSound();
+            // Use Transition Manager
+            Core.SceneTransitionManager.Instance.LoadScene(gameSceneName);
         }
 
         /// <summary>
@@ -24,6 +27,8 @@ namespace UI
         public void OnExitButtonClick()
         {
             Debug.Log("[MainMenuUI] Exit Game clicked.");
+            // Play sound
+            Core.AudioManager.Instance?.PlayButtonSound();
             Application.Quit();
             
             #if UNITY_EDITOR

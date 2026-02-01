@@ -82,6 +82,28 @@ public class DialogInfo : MonoBehaviour
 
         Debug.Log($"[DialogInfo] Received DIALOG_START event with ID: {startId}");
 
+        // 检查是否需要排队（如果是发给非当前联系人的消息）
+        if (startId > 0 && dialogDict.ContainsKey(startId) && chatController != null)
+        {
+            var firstItems = dialogDict[startId];
+            if (firstItems != null && firstItems.Count > 0)
+            {
+                string charName = firstItems[0].character;
+                if (!string.IsNullOrEmpty(charName))
+                {
+                    var contact = chatController.GetContactByName(charName);
+                    // 如果是发给某个联系人的，且当前没有在看这个联系人
+                    if (contact != null && chatController.CurrentContact != contact)
+                    {
+                        Debug.Log($"[DialogInfo] Target contact {charName} is not active. Queuing dialog {startId}.");
+                        // 调用 ChatController 的 TriggerNewDialog 进行排队处理（标记未读、设置ID）
+                        chatController.TriggerNewDialog(charName, startId);
+                        return; // 阻止直接播放
+                    }
+                }
+            }
+        }
+
         // 开始新对话前，清理所有旧的 pending 选项，防止状态冲突
         if (chatController != null)
         {
@@ -101,10 +123,40 @@ public class DialogInfo : MonoBehaviour
         }
     }
 
+    private ChatSystem.ContactData FindContactInDeepSearch(int startId)
+    {
+        // 深度搜索：最多往下找 50 层，防止死循环
+        int currentId = startId;
+        int depth = 0;
+        while (currentId > 0 && dialogDict.ContainsKey(currentId) && depth < 50)
+        {
+            var items = dialogDict[currentId];
+            if (items == null || items.Count == 0) break;
+
+            foreach (var item in items)
+            {
+                // 1. 检查 Character 字段
+                if (!string.IsNullOrEmpty(item.character))
+                {
+                    var contact = chatController.GetContactByName(item.character);
+                    if (contact != null) return contact;
+                }
+            }
+
+            // 没找到，继续找下一句 (JumpId)
+            // 如果是选项，通常会有多个 item，我们取第一个的 JumpId 继续找
+            // (通常同一段对话里，选项最终都会回到同一个人的对话流，或者这一段就是这个人的)
+            currentId = items[0].jumpId;
+            depth++;
+        }
+        return null;
+    }
+
     private IEnumerator RunDialogSequence()
     {
         bool isFirstMessage = true; // 标记是否为第一条消息
         ChatSystem.ContactData activeContact = null; // 记录当前对话的活跃联系人
+        HashSet<ChatSystem.ContactData> processedContacts = new HashSet<ChatSystem.ContactData>(); // 记录本次对话中已处理过分隔符的联系人
 
         // 在开始对话前，尝试检测是否需要插入分割线（如果该联系人已有历史消息）
         if (currentDialogId > 0 && dialogDict.ContainsKey(currentDialogId) && chatController != null)
@@ -112,23 +164,28 @@ public class DialogInfo : MonoBehaviour
             var firstItems = dialogDict[currentDialogId];
             if (firstItems != null && firstItems.Count > 0)
             {
-                // 尝试获取第一句话的发送者
-                string charName = firstItems[0].character;
-                if (!string.IsNullOrEmpty(charName))
+                // 预判联系人
+                if (activeContact == null)
                 {
-                    var contact = chatController.GetContactByName(charName);
+                    activeContact = FindContactInDeepSearch(currentDialogId);
+                }
+
+                // 如果找到了联系人，处理分割线逻辑
+                if (activeContact != null)
+                {
+                    // 标记为已处理
+                    processedContacts.Add(activeContact);
+
                     // 如果联系人存在且已经有聊天记录
-                    if (contact != null && contact.messageHistory.Count > 0)
+                    if (activeContact.messageHistory.Count > 0)
                     {
                         // 检查最后一条是否已经是分割线（避免重复）
-                        var lastMsg = contact.messageHistory[contact.messageHistory.Count - 1];
+                        var lastMsg = activeContact.messageHistory[activeContact.messageHistory.Count - 1];
                         if (lastMsg.type != ChatSystem.MessageType.Separator)
                         {
-                            chatController.AddSeparator(contact);
+                            chatController.AddSeparator(activeContact);
                         }
                     }
-                    // 顺便预设 activeContact
-                    activeContact = contact;
                 }
             }
         }
@@ -153,6 +210,32 @@ public class DialogInfo : MonoBehaviour
 
             List<DialogItem> items = dialogDict[currentDialogId];
             if (items == null || items.Count == 0) break;
+
+            // [新增] 每一句都检查当前说话人是否需要分割线（处理中途换人的情况）
+            string charName = items[0].character;
+            if (!string.IsNullOrEmpty(charName))
+            {
+                var itemContact = chatController.GetContactByName(charName);
+                if (itemContact != null)
+                {
+                    // 如果是本次对话还没处理过的联系人
+                    if (!processedContacts.Contains(itemContact))
+                    {
+                        processedContacts.Add(itemContact);
+                        // 检查是否需要加分割线
+                        if (itemContact.messageHistory.Count > 0)
+                        {
+                            var lastMsg = itemContact.messageHistory[itemContact.messageHistory.Count - 1];
+                            if (lastMsg.type != ChatSystem.MessageType.Separator)
+                            {
+                                chatController.AddSeparator(itemContact);
+                            }
+                        }
+                    }
+                    // 更新活跃联系人，确保选项发给对的人
+                    activeContact = itemContact;
+                }
+            }
 
             // 检查后果弹窗 (O列)
             string consequenceMsg = null;
@@ -287,13 +370,6 @@ public class DialogInfo : MonoBehaviour
                     }
 
                     EventManager.Instance.TriggerEvent(GameEvents.DIALOG_END, currentDialogId);
-                    
-                    // 检查游戏胜利条件：到达END且处于安全阶段(ID >= 12001)
-                    if (Core.TimeSystem.GameCountdownTimer.Instance != null && Core.TimeSystem.GameCountdownTimer.Instance.isSafePhase)
-                    {
-                        Debug.Log("[DialogInfo] Reached END in Safe Phase. Triggering GAME_WIN.");
-                        EventManager.Instance.TriggerEvent(GameEvents.GAME_WIN, null);
-                    }
                     
                     break;
                 }

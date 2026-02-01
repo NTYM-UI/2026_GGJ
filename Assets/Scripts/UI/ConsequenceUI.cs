@@ -68,6 +68,7 @@ namespace UI
         public void Show(string text)
         {
             Debug.Log($"[ConsequenceUI] Showing consequence: {text}");
+            Core.AudioManager.Instance?.PlayPopupSound();
             
             // 停止之前的流程协程
             if (currentCoroutine != null) StopCoroutine(currentCoroutine);

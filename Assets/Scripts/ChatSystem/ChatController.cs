@@ -63,6 +63,7 @@ namespace ChatSystem
         [SerializeField] private ProfilePopupUI profilePopup; // 个人信息弹窗
 
         private ContactData currentContact;
+        public ContactData CurrentContact => currentContact;
         private Dictionary<ContactData, ContactItem> contactItemMap = new Dictionary<ContactData, ContactItem>();
         
         // 用于控制对话流程的变量
@@ -299,10 +300,8 @@ namespace ChatSystem
 
         private void PlayNotificationSound()
         {
-            if (audioSource != null && notificationSound != null)
-            {
-                audioSource.PlayOneShot(notificationSound);
-            }
+            // Use Central Audio Manager
+            Core.AudioManager.Instance?.PlayNotificationSound();
         }
 
         // 旧的演示流程，保留备用或删除
@@ -477,18 +476,19 @@ namespace ChatSystem
         /// <summary>
         /// 添加分割线
         /// </summary>
-        public void AddSeparator(ContactData targetContact)
+        public void AddSeparator(ContactData contact)
         {
-            if (targetContact == null) return;
+            if (contact == null) return;
             
-            ChatMessage msg = new ChatMessage("", false); // 内容为空，类型为 Separator
-            msg.type = MessageType.Separator;
+            ChatMessage separatorMsg = new ChatMessage("------------------", false);
+            separatorMsg.type = MessageType.Separator;
             
-            targetContact.messageHistory.Add(msg);
-            
-            if (currentContact == targetContact)
+            contact.messageHistory.Add(separatorMsg);
+
+            // 如果当前正在显示该联系人，则立即更新 UI
+            if (currentContact == contact)
             {
-                CreateBubble(msg);
+                CreateBubble(separatorMsg);
             }
         }
 
@@ -516,6 +516,11 @@ namespace ChatSystem
             if (currentContact == targetContact)
             {
                 CreateBubble(msg);
+                // 仅 NPC 发消息时播放音效
+                if (!isSelf)
+                {
+                    Core.AudioManager.Instance?.PlayMessageSound();
+                }
             }
             // 3. 否则，标记为未读（仅限对方发的消息）
             else if (!isSelf)

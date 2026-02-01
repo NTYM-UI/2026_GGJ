@@ -14,7 +14,10 @@ namespace ChatSystem
         {
             if (closeButton != null)
             {
-                closeButton.onClick.AddListener(Hide);
+                closeButton.onClick.AddListener(() => 
+                {
+                    Hide();
+                });
             }
             // Ensure it's hidden on start
             Hide();
@@ -45,6 +48,8 @@ namespace ChatSystem
         public void Show(Sprite sprite, RectTransform targetAvatar)
         {
             if (sprite == null) return;
+            
+            // Core.AudioManager.Instance?.PlayPopupSound();
             
             if (profileImageDisplay != null)
             {

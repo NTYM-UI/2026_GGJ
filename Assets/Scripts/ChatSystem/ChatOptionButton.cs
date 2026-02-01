@@ -50,7 +50,11 @@ namespace ChatSystem
             if (button != null)
             {
                 button.onClick.RemoveAllListeners();
-                button.onClick.AddListener(() => onClick?.Invoke());
+                button.onClick.AddListener(() => 
+                {
+                    Core.AudioManager.Instance?.PlayOptionSound();
+                    onClick?.Invoke();
+                });
                 button.interactable = true; // Reset state
             }
         }

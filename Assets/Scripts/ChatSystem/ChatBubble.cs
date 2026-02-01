@@ -139,7 +139,10 @@ namespace ChatSystem
             if (btn == null) btn = avatar.gameObject.AddComponent<Button>();
             
             btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() => onClick.Invoke(avatar.rectTransform));
+            btn.onClick.AddListener(() => 
+            {
+                onClick.Invoke(avatar.rectTransform);
+            });
         }
 
         /// <summary>
