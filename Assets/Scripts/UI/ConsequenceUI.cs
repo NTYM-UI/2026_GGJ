@@ -15,11 +15,17 @@ namespace UI
 
         [Header("Settings")]
         [SerializeField] private float displayDuration = 1.5f; // 显示多久后开始淡出
-        [SerializeField] private float fadeInDuration = 0.5f;  // 淡入过程持续时间
-        [SerializeField] private float fadeDuration = 0.5f;    // 淡出过程持续时间
-
+        [SerializeField] private float fadeInDuration = 0.3f;  // 弹出动画时间
+        [SerializeField] private float fadeDuration = 0.2f;    // 消失动画时间
+        
+        [Header("Animation")]
+        [Tooltip("弹出动画曲线（建议设置一个稍微超过1的峰值来实现回弹效果）")]
+        [SerializeField] private AnimationCurve popCurve = new AnimationCurve(new Keyframe(0, 0), new Keyframe(0.8f, 1.1f), new Keyframe(1, 1));
+        
         private CanvasGroup canvasGroup;
         private Coroutine currentCoroutine;
+        private RectTransform panelRect;
+        private Vector3 originalScale = Vector3.one;
 
         private void Awake()
         {
@@ -32,6 +38,9 @@ namespace UI
                 canvasGroup = panel.AddComponent<CanvasGroup>();
             }
             
+            panelRect = panel.GetComponent<RectTransform>();
+            if (panelRect != null) originalScale = panelRect.localScale;
+
             // 默认不阻挡射线（允许穿透点击），因为是自动消失的提示
             canvasGroup.blocksRaycasts = false;
             canvasGroup.alpha = 0f; // 初始设为透明
@@ -51,10 +60,7 @@ namespace UI
 
         private void OnDisable()
         {
-            if (EventManager.HasInstance)
-            {
-                EventManager.Instance.Unsubscribe(GameEvents.SHOW_CONSEQUENCE, OnShowConsequence);
-            }
+            EventManager.Instance?.Unsubscribe(GameEvents.SHOW_CONSEQUENCE, OnShowConsequence);
         }
 
         private void OnShowConsequence(object data)
@@ -83,38 +89,60 @@ namespace UI
                 legacyText.text = text;
             }
 
-            // 激活面板并重置透明度为0（准备淡入）
+            // 激活面板并重置状态（准备弹出）
             panel.SetActive(true);
             canvasGroup.alpha = 0f;
+            if (panelRect != null) panelRect.localScale = Vector3.zero;
 
-            // 开始完整的显示流程（淡入 -> 等待 -> 淡出）
+            // 开始完整的显示流程（弹出 -> 等待 -> 消失）
             currentCoroutine = StartCoroutine(ShowSequence());
         }
 
         private IEnumerator ShowSequence()
         {
-            // 1. 淡入
+            // 1. 弹出动画 (Scale & Fade In)
             float timer = 0f;
             while (timer < fadeInDuration)
             {
                 timer += Time.deltaTime;
-                canvasGroup.alpha = Mathf.Lerp(0f, 1f, timer / fadeInDuration);
+                float progress = timer / fadeInDuration;
+                
+                // 应用缩放曲线
+                float scale = popCurve.Evaluate(progress);
+                if (panelRect != null) panelRect.localScale = originalScale * scale;
+                
+                // 同时淡入透明度 (线性的)
+                canvasGroup.alpha = Mathf.Clamp01(progress / 0.8f); // 稍微快一点显示出来
+                
                 yield return null;
             }
+            
+            // 确保最终状态正确
+            if (panelRect != null) panelRect.localScale = originalScale;
             canvasGroup.alpha = 1f;
 
             // 2. 等待展示时间
             yield return new WaitForSeconds(displayDuration);
 
-            // 3. 淡出
+            // 3. 消失动画 (Shrink & Fade Out)
             timer = 0f;
             while (timer < fadeDuration)
             {
                 timer += Time.deltaTime;
-                canvasGroup.alpha = Mathf.Lerp(1f, 0f, timer / fadeDuration);
+                float progress = timer / fadeDuration;
+                
+                // 反向缩放
+                float scale = Mathf.Lerp(1f, 0f, progress);
+                if (panelRect != null) panelRect.localScale = originalScale * scale;
+                
+                // 淡出
+                canvasGroup.alpha = 1f - progress;
+                
                 yield return null;
             }
+            
             canvasGroup.alpha = 0f;
+            if (panelRect != null) panelRect.localScale = Vector3.zero;
 
             // 4. 关闭面板
             Close();

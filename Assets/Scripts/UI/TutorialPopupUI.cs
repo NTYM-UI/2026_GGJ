@@ -12,6 +12,8 @@ namespace UI
         [Header("Animation")]
         [SerializeField] private float popupDuration = 0.5f; // 弹出动画时长
         [SerializeField] private AnimationCurve popupCurve = AnimationCurve.EaseInOut(0, 0, 1, 1); // 弹出曲线
+        [SerializeField] private float closeDuration = 0.3f; // 关闭动画时长
+        [SerializeField] private AnimationCurve closeCurve = AnimationCurve.EaseInOut(0, 0, 1, 1); // 关闭曲线
 
         private void Awake()
         {
@@ -91,6 +93,41 @@ namespace UI
         }
 
         private void OnCloseButtonClicked()
+        {
+            // 避免重复点击
+            if (closeButton != null) closeButton.interactable = false;
+
+            if (contentPanel != null)
+            {
+                StartCoroutine(AnimateClose());
+            }
+            else
+            {
+                OnCloseAnimationFinished();
+            }
+        }
+
+        private System.Collections.IEnumerator AnimateClose()
+        {
+            float timer = 0f;
+            Vector3 startScale = contentPanel.transform.localScale;
+            Vector3 endScale = Vector3.zero;
+
+            while (timer < closeDuration)
+            {
+                timer += Time.deltaTime;
+                float t = timer / closeDuration;
+                float curveValue = closeCurve.Evaluate(t);
+                
+                contentPanel.transform.localScale = Vector3.LerpUnclamped(startScale, endScale, curveValue);
+                yield return null;
+            }
+            
+            contentPanel.transform.localScale = endScale;
+            OnCloseAnimationFinished();
+        }
+
+        private void OnCloseAnimationFinished()
         {
             // 关闭面板
             if (contentPanel != null)

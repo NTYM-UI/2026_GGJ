@@ -12,6 +12,8 @@ namespace Core
         [SerializeField] private AudioClip popupOpenSound;
         [SerializeField] private AudioClip messageSound;
         [SerializeField] private AudioClip notificationSound;
+        [SerializeField] private AudioClip victorySound;
+        [SerializeField] private AudioClip failureSound;
         [SerializeField] private AudioClip backgroundMusic;
         
         [Header("Settings")]
@@ -41,8 +43,18 @@ namespace Core
 
         private void InitializeAudioSource()
         {
-            sfxSource = gameObject.AddComponent<AudioSource>();
-            sfxSource.playOnAwake = false;
+            if (sfxSource == null)
+            {
+                sfxSource = gameObject.AddComponent<AudioSource>();
+                sfxSource.playOnAwake = false;
+            }
+
+            if (musicSource == null)
+            {
+                musicSource = gameObject.AddComponent<AudioSource>();
+                musicSource.playOnAwake = true;
+                musicSource.loop = true;
+            }
         }
 
         public void PlayButtonSound()
@@ -97,6 +109,22 @@ namespace Core
             }
         }
 
+        public void PlayVictorySound()
+        {
+            if (victorySound != null)
+            {
+                PlaySFX(victorySound);
+            }
+        }
+
+        public void PlayFailureSound()
+        {
+            if (failureSound != null)
+            {
+                PlaySFX(failureSound);
+            }
+        }
+
         public void PlaySFX(AudioClip clip, float volumeScale = 1.0f)
         {
             if (clip == null) return;
@@ -128,6 +156,22 @@ namespace Core
             if (musicSource != null)
             {
                 musicSource.volume = musicVolume;
+            }
+        }
+
+        public void StopMusic()
+        {
+            if (musicSource != null && musicSource.isPlaying)
+            {
+                musicSource.Stop();
+            }
+        }
+
+        public void PlayBackgroundMusic()
+        {
+            if (backgroundMusic != null)
+            {
+                PlayMusic(backgroundMusic);
             }
         }
     }

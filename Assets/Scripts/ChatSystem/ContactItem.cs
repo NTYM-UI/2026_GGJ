@@ -14,9 +14,13 @@ namespace ChatSystem
         [SerializeField] private Button button;
         [SerializeField] private Image avatarImage; // 可选：头像显示
         [SerializeField] private GameObject redDotObj; // 红点提示
+        
+        // 用于显示选中状态的 Image 组件（如果是直接替换按钮背景图，可以指向 Button 的 TargetGraphic）
+        [SerializeField] private Image backgroundOrSelectionImage; 
 
         private ContactData data;
         private Action<ContactData> onClickCallback;
+        private Sprite defaultSprite; // 默认图片（未选中）
 
         public void Setup(ContactData data, Action<ContactData> onClick)
         {
@@ -30,6 +34,20 @@ namespace ChatSystem
             {
                 avatarImage.sprite = data.avatar;
                 avatarImage.gameObject.SetActive(true);
+            }
+
+            // 保存默认图片（假设当前显示的图片就是默认图）
+            if (backgroundOrSelectionImage != null)
+            {
+                if (defaultSprite == null) 
+                    defaultSprite = backgroundOrSelectionImage.sprite;
+            }
+            else if (button != null && button.targetGraphic is Image)
+            {
+                // 如果没手动指定，尝试获取按钮的目标图片
+                backgroundOrSelectionImage = button.targetGraphic as Image;
+                if (defaultSprite == null) 
+                    defaultSprite = backgroundOrSelectionImage.sprite;
             }
 
             // 设置红点状态
@@ -91,10 +109,14 @@ namespace ChatSystem
         /// </summary>
         public void SetSelected(bool isSelected)
         {
-            if (button != null)
+            // 如果配置了选中状态的图片，则切换图片
+            if (backgroundOrSelectionImage != null && data.selectedSprite != null)
             {
-                // 简单示例：选中时变暗，未选中恢复
-                // 实际项目中建议替换为切换 Sprite 或改变文字颜色
+                backgroundOrSelectionImage.sprite = isSelected ? data.selectedSprite : defaultSprite;
+            }
+            else if (button != null)
+            {
+                // 降级方案：改变颜色
                 ColorBlock colors = button.colors;
                 colors.normalColor = isSelected ? new Color(0.8f, 0.8f, 0.8f) : Color.white;
                 button.colors = colors;

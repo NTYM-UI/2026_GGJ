@@ -171,6 +171,14 @@ public class DialogInfo : MonoBehaviour
                 if (activeContact == null)
                 {
                     activeContact = FindContactInDeepSearch(currentDialogId);
+                    
+                    // [Fix] 如果深度搜索也没找到联系人（例如全是玩家自言自语，或者配置漏了），
+                    // 则默认绑定到当前正在观看的联系人，防止中途切换联系人导致消息错乱。
+                    if (activeContact == null && chatController != null)
+                    {
+                        activeContact = chatController.CurrentContact;
+                        Debug.Log($"[DialogInfo] Deep search failed. Defaulting activeContact to {activeContact?.contactName}");
+                    }
                 }
 
                 // 如果找到了联系人，处理分割线逻辑
@@ -205,9 +213,9 @@ public class DialogInfo : MonoBehaviour
                     Core.TimeSystem.GameCountdownTimer.Instance.isSafePhase = true;
                     Debug.Log($"[DialogInfo] Reached checkpoint {currentDialogId}, Safe Phase enabled.");
                     
-                    // 只要读到12001且此时没失败，就直接判定胜利触发
-                    Debug.Log("[DialogInfo] Reached 12001 (Safe Phase). Triggering GAME_WIN immediately.");
-                    EventManager.Instance.TriggerEvent(GameEvents.GAME_WIN, null);
+                    // [MODIFIED] 只要读到12001且此时没失败，进入安全模式（停止倒计时），但暂不弹窗，等到 END 再弹
+                    // Debug.Log("[DialogInfo] Reached 12001 (Safe Phase). Triggering GAME_WIN immediately.");
+                    // EventManager.Instance.TriggerEvent(GameEvents.GAME_WIN, null);
                 }
             }
 
@@ -374,6 +382,13 @@ public class DialogInfo : MonoBehaviour
 
                     EventManager.Instance.TriggerEvent(GameEvents.DIALOG_END, currentDialogId);
                     
+                    // [NEW] 如果是在胜利分支(ID>=12001)结束，触发胜利
+                    if (currentDialogId >= 12001)
+                    {
+                        Debug.Log("[DialogInfo] Reached END of 12001+ sequence. Triggering GAME_WIN.");
+                        EventManager.Instance.TriggerEvent(GameEvents.GAME_WIN, null);
+                    }
+
                     break;
                 }
 

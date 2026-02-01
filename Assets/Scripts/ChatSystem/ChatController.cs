@@ -26,6 +26,14 @@ namespace ChatSystem
         [Tooltip("用于控制滚动的 ScrollRect 组件")]
         private ScrollRect scrollRect;
 
+        [SerializeField]
+        [Tooltip("聊天页面上方显示当前联系人头像的 Image 组件")]
+        private Image currentContactAvatarImage;
+
+        [SerializeField]
+        [Tooltip("聊天页面上方显示当前联系人名字的 Text 组件 (支持 TMP)")]
+        private TMP_Text currentContactNameText;
+
         [Header("Option System (选项系统)")]
         
         [SerializeField]
@@ -292,7 +300,38 @@ namespace ChatSystem
             isWaitingForOption = false;
             currentOptions = null;
 
+            // 更新联系人列表的选中状态
+            if (currentContact != null && contactItemMap.ContainsKey(currentContact))
+            {
+                contactItemMap[currentContact].SetSelected(false);
+            }
+            if (contact != null && contactItemMap.ContainsKey(contact))
+            {
+                contactItemMap[contact].SetSelected(true);
+            }
+
             currentContact = contact;
+
+            // 更新顶部头像显示
+            if (currentContactAvatarImage != null)
+            {
+                if (currentContact.avatar != null)
+                {
+                    currentContactAvatarImage.sprite = currentContact.avatar;
+                    currentContactAvatarImage.gameObject.SetActive(true);
+                }
+                else
+                {
+                    // 如果没有头像，可以选择隐藏或者显示默认图
+                    currentContactAvatarImage.gameObject.SetActive(false);
+                }
+            }
+
+            // 更新顶部名字显示
+            if (currentContactNameText != null)
+            {
+                currentContactNameText.text = currentContact.contactName;
+            }
 
             // 清除未读状态
             if (contact.isUnread)
@@ -374,6 +413,12 @@ namespace ChatSystem
                 if (currentContact == targetContact)
                 {
                     Core.EventSystem.EventManager.Instance.TriggerEvent(Core.EventSystem.GameEvents.DIALOG_START, dialogId);
+
+                    // [Fix] 如果触发的对话ID与挂起的ID一致，清除挂起状态，防止切换回来时重复触发
+                    if (targetContact.excelDialogId == dialogId)
+                    {
+                        targetContact.excelDialogId = 0;
+                    }
                 }
                 else
                 {
